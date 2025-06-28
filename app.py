@@ -1,11 +1,40 @@
 import streamlit as st
 import json
+import random
 
+# -------------------------------------------
+# CONFIGURAÇÃO DE PÁGINA
+# -------------------------------------------
 st.set_page_config(page_title="Assistente de Modo Carreira", layout="centered")
+
 st.title("⚽ IA do Modo Carreira FIFA")
 
-platform = st.radio("Qual sua plataforma?", ["PC", "Console"])
+# -------------------------------------------
+# FUNÇÃO DE NOTÍCIAS ALEATÓRIAS
+# -------------------------------------------
+def gerar_noticia_aleatoria(ano, time):
+    noticias = [
+        f"{ano}: Escândalo no VAR gera polêmica após jogo entre {time} e rival direto.",
+        f"{ano}: Estádio do {time} será ampliado para comportar mais 20 mil torcedores.",
+        f"{ano}: Jovem da base do {time} ganha prêmio de revelação do campeonato.",
+        f"{ano}: Treinador do {time} é eleito técnico do mês pela terceira vez consecutiva.",
+        f"{ano}: {time} sofre com surto de lesões e tem que improvisar goleiro na zaga.",
+        f"{ano}: Federação anuncia mudanças no calendário e revolta clubes da liga.",
+        f"{ano}: Árbitro suspenso após atuação polêmica em partida do {time}.",
+        f"{ano}: Nova regra de impedimento é testada em partida oficial e gera confusão.",
+        f"{ano}: Inteligência artificial passa a analisar desempenho tático em tempo real.",
+        f"{ano}: Crise financeira atinge clube tradicional e preocupa torcida.",
+        f"{ano}: Torcida do {time} organiza mosaico histórico no clássico local.",
+        f"{ano}: Relatório aponta {time} como clube que mais evoluiu fisicamente na temporada.",
+        f"{ano}: Ídolo do {time} anuncia aposentadoria e recebe homenagens no estádio.",
+        f"{ano}: FIFA anuncia nova premiação para jogada mais bonita da temporada.",
+        f"{ano}: Jogo do {time} é interrompido por invasão de drone em campo."
+    ]
+    return random.choice(noticias)
 
+# -------------------------------------------
+# ESTRUTURA DE DADOS DA CARREIRA
+# -------------------------------------------
 carreira_data = {
     "time": "",
     "temporada": "",
@@ -20,8 +49,16 @@ carreira_data = {
     }
 }
 
+# -------------------------------------------
+# ESCOLHA DA PLATAFORMA
+# -------------------------------------------
+platform = st.radio("Qual sua plataforma?", ["PC", "Console"])
+
+# -------------------------------------------
+# MODO PC: UPLOAD DO SAVE OU CSV
+# -------------------------------------------
 if platform == "PC":
-    st.subheader("📤 Upload da Carreira")
+    st.subheader("📄 Upload da Carreira")
     uploaded_file = st.file_uploader("Envie o arquivo convertido (.csv ou .json)", type=["csv", "json"])
 
     if uploaded_file:
@@ -47,6 +84,9 @@ if platform == "PC":
         carreira_data["temporada"] = st.text_input("Temporada atual", "2028-2029")
         carreira_data["verba"] = st.number_input("Verba disponível (milhões)", value=50000000)
 
+# -------------------------------------------
+# MODO CONSOLE: ENTRADA MANUAL
+# -------------------------------------------
 elif platform == "Console":
     st.subheader("📝 Preencha os dados abaixo")
     carreira_data["time"] = st.text_input("Qual seu time?")
@@ -59,7 +99,7 @@ elif platform == "Console":
     carreira_data["tabela"]["gols_sofridos"] = st.number_input("Gols sofridos", 0)
     carreira_data["tabela"]["partidas"] = st.number_input("Partidas jogadas", 0)
     ultimos = st.text_input("Últimos 5 jogos (ex: V,E,D,D,V)").upper()
-    carreira_data["tabela"]["últimos_resultados"] = ultimos.split(",") if ultimos else []
+    carreira_data["tabela"]["\u00faltimos_resultados"] = ultimos.split(",") if ultimos else []
 
     st.markdown("### Adicione Jogadores (manual)")
     with st.expander("Adicionar jogador ao elenco"):
@@ -83,6 +123,18 @@ elif platform == "Console":
             })
             st.success("Jogador adicionado!")
 
+# -------------------------------------------
+# NOTÍCIAS ALEATÓRIAS DO ANO
+# -------------------------------------------
+st.markdown("---")
+st.subheader("📰 Notícia Aleatória da Temporada")
+ano_atual = carreira_data["temporada"].split("-")[0] if carreira_data["temporada"] else "2028"
+if carreira_data["time"]:
+    st.info(gerar_noticia_aleatoria(ano_atual, carreira_data["time"]))
+
+# -------------------------------------------
+# CHATBOT FUNCIONAL (via API)
+# -------------------------------------------
 st.markdown("---")
 st.subheader("💬 Assistente de Carreira (Chatbot)")
 
@@ -91,8 +143,9 @@ if "chat_history" not in st.session_state:
 
 user_input = st.text_input("Pergunte algo para o assistente:")
 
-prompt_base = f"""Você é um assistente técnico virtual no modo carreira do FIFA. 
-Baseado nos dados a seguir, responda como se fosse um treinador experiente:
+prompt_base = f"""
+Você é um assistente técnico virtual no modo carreira do FIFA. 
+Baseado nos dados a seguir, responda como se fosse um treinador experiente, dando conselhos inteligentes, objetivos e úteis:
 
 DADOS DA CARREIRA:
 {json.dumps(carreira_data, indent=2)}
