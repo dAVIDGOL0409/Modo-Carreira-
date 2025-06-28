@@ -2,16 +2,18 @@ import streamlit as st
 import json
 import random
 
-# -------------------------------------------
-# CONFIGURAÇÃO DE PÁGINA
-# -------------------------------------------
-st.set_page_config(page_title="Assistente de Modo Carreira", layout="centered")
-
+st.set_page_config(page_title="Assistente de Modo Carreira", layout="wide")
 st.title("⚽ IA do Modo Carreira FIFA")
 
-# -------------------------------------------
-# FUNÇÃO DE NOTÍCIAS ALEATÓRIAS
-# -------------------------------------------
+# Sessões importantes
+if "chat_history" not in st.session_state:
+    st.session_state.chat_history = []
+if "titulares" not in st.session_state:
+    st.session_state.titulares = []
+if "reservas" not in st.session_state:
+    st.session_state.reservas = []
+
+# Função para notícia aleatória
 def gerar_noticia_aleatoria(ano, time):
     noticias = [
         f"{ano}: Escândalo no VAR gera polêmica após jogo entre {time} e rival direto.",
@@ -32,9 +34,7 @@ def gerar_noticia_aleatoria(ano, time):
     ]
     return random.choice(noticias)
 
-# -------------------------------------------
-# ESTRUTURA DE DADOS DA CARREIRA
-# -------------------------------------------
+# Dados da carreira
 carreira_data = {
     "time": "",
     "temporada": "",
@@ -49,25 +49,19 @@ carreira_data = {
     }
 }
 
-# -------------------------------------------
-# ESCOLHA DA PLATAFORMA
-# -------------------------------------------
+# Plataforma
 platform = st.radio("Qual sua plataforma?", ["PC", "Console"])
 
-# -------------------------------------------
-# MODO PC: UPLOAD DO SAVE OU CSV
-# -------------------------------------------
+# PC: Upload
 if platform == "PC":
     st.subheader("📄 Upload da Carreira")
-    uploaded_file = st.file_uploader("Envie o arquivo convertido (.csv ou .json)", type=["csv", "json"])
-
+    uploaded_file = st.file_uploader("Envie o arquivo (.csv ou .json)", type=["csv", "json"])
     if uploaded_file:
         file_type = uploaded_file.name.split(".")[-1]
-
+        import pandas as pd
         if file_type == "json":
             carreira_data = json.load(uploaded_file)
         elif file_type == "csv":
-            import pandas as pd
             df = pd.read_csv(uploaded_file)
             for _, row in df.iterrows():
                 carreira_data["jogadores"].append({
@@ -77,17 +71,16 @@ if platform == "PC":
                     "potencial": row["potencial"],
                     "posição": row["posição"],
                     "moral": row["moral"],
-                    "tempo_de_jogo": row["tempo_de_jogo"]
+                    "tempo_de_jogo": row["tempo_de_jogo"],
+                    "foto": row.get("foto", "")  # Campo opcional
                 })
 
         carreira_data["time"] = st.text_input("Qual seu time?", "Time Padrão")
         carreira_data["temporada"] = st.text_input("Temporada atual", "2028-2029")
         carreira_data["verba"] = st.number_input("Verba disponível (milhões)", value=50000000)
 
-# -------------------------------------------
-# MODO CONSOLE: ENTRADA MANUAL
-# -------------------------------------------
-elif platform == "Console":
+# Console: Manual
+else:
     st.subheader("📝 Preencha os dados abaixo")
     carreira_data["time"] = st.text_input("Qual seu time?")
     carreira_data["temporada"] = st.text_input("Temporada atual", "2028-2029")
@@ -99,7 +92,7 @@ elif platform == "Console":
     carreira_data["tabela"]["gols_sofridos"] = st.number_input("Gols sofridos", 0)
     carreira_data["tabela"]["partidas"] = st.number_input("Partidas jogadas", 0)
     ultimos = st.text_input("Últimos 5 jogos (ex: V,E,D,D,V)").upper()
-    carreira_data["tabela"]["\u00faltimos_resultados"] = ultimos.split(",") if ultimos else []
+    carreira_data["tabela"]["últimos_resultados"] = ultimos.split(",") if ultimos else []
 
     st.markdown("### Adicione Jogadores (manual)")
     with st.expander("Adicionar jogador ao elenco"):
@@ -110,7 +103,7 @@ elif platform == "Console":
         posicao = st.selectbox("Posição", ["GK", "CB", "LB", "RB", "CM", "LM", "RM", "ST", "CAM", "CDM"])
         moral = st.selectbox("Moral", ["baixa", "média", "alta"])
         tempo_jogo = st.selectbox("Tempo de jogo", ["baixo", "médio", "alto", "muito alto"])
-
+        foto = st.text_input("URL da foto do jogador (opcional)")
         if st.button("Adicionar jogador"):
             carreira_data["jogadores"].append({
                 "nome": nome,
@@ -119,57 +112,95 @@ elif platform == "Console":
                 "potencial": potencial,
                 "posição": posicao,
                 "moral": moral,
-                "tempo_de_jogo": tempo_jogo
+                "tempo_de_jogo": tempo_jogo,
+                "foto": foto
             })
             st.success("Jogador adicionado!")
 
-# -------------------------------------------
-# NOTÍCIAS ALEATÓRIAS DO ANO
-# -------------------------------------------
+# Exibir jogadores com fotos
+st.markdown("---")
+st.subheader("📸 Elenco Atual com Fotos")
+for jogador in carreira_data["jogadores"]:
+    col1, col2 = st.columns([1, 4])
+    with col1:
+        if jogador.get("foto"):
+            st.image(jogador["foto"], width=60)
+    with col2:
+        st.markdown(f"**{jogador['nome']}** | {jogador['posição']} | Overall: {jogador['overall']} | Moral: {jogador['moral']}")
+
+# Aba de contratação e controle financeiro
+st.markdown("---")
+st.subheader("💰 Contratação de Jogadores")
+with st.expander("Simular contratação"):
+    jogador_nome = st.text_input("Nome do jogador a contratar")
+    valor = st.number_input("Valor da contratação (milhões)", 0)
+    if st.button("Contratar jogador"):
+        if valor <= carreira_data["verba"]:
+            carreira_data["verba"] -= valor
+            st.success(f"{jogador_nome} contratado por {valor} milhões!")
+        else:
+            st.error("Verba insuficiente para essa contratação.")
+st.info(f"💼 Verba restante: R$ {carreira_data['verba']:,} milhões")
+
+# Escalação titular e reservas
+st.markdown("---")
+st.subheader("📋 Escalação Titular e Reservas")
+titulares = st.multiselect("Escolha os titulares", [j["nome"] for j in carreira_data["jogadores"]])
+reservas = [j["nome"] for j in carreira_data["jogadores"] if j["nome"] not in titulares]
+st.session_state.titulares = titulares
+st.session_state.reservas = reservas
+
+col1, col2 = st.columns(2)
+with col1:
+    st.markdown("### 🟢 Titulares")
+    for t in titulares:
+        st.markdown(f"- {t}")
+with col2:
+    st.markdown("### 🟡 Reservas")
+    for r in reservas:
+        st.markdown(f"- {r}")
+
+# Notícia Aleatória
 st.markdown("---")
 st.subheader("📰 Notícia Aleatória da Temporada")
 ano_atual = carreira_data["temporada"].split("-")[0] if carreira_data["temporada"] else "2028"
 if carreira_data["time"]:
     st.info(gerar_noticia_aleatoria(ano_atual, carreira_data["time"]))
 
-# -------------------------------------------
-# CHATBOT FUNCIONAL (via API)
-# -------------------------------------------
+# Chatbot funcional
 st.markdown("---")
 st.subheader("💬 Assistente de Carreira (Chatbot)")
-
-if "chat_history" not in st.session_state:
-    st.session_state.chat_history = []
-
 user_input = st.text_input("Pergunte algo para o assistente:")
 
 prompt_base = f"""
-Você é um assistente técnico virtual no modo carreira do FIFA. 
-Baseado nos dados a seguir, responda como se fosse um treinador experiente, dando conselhos inteligentes, objetivos e úteis:
+Você é um assistente técnico no modo carreira do FIFA. 
+Responda com base nesses dados:
 
 DADOS DA CARREIRA:
 {json.dumps(carreira_data, indent=2)}
 
-Usuário perguntou: {user_input}
+TITULARES: {st.session_state.titulares}
+RESERVAS: {st.session_state.reservas}
+
+Pergunta: {user_input}
 """
 
 if user_input:
-    with st.spinner("Pensando..."):
-        import openai
-        openai.api_key = "SUA_API_KEY_AQUI"
+    import openai
+    openai.api_key = "SUA_API_KEY_AQUI"
 
-        response = openai.ChatCompletion.create(
-            model="gpt-4o",
-            messages=[
-                {"role": "system", "content": "Você é um assistente técnico de futebol no modo carreira do FIFA."},
-                {"role": "user", "content": prompt_base}
-            ],
-            temperature=0.7,
-        )
+    response = openai.ChatCompletion.create(
+        model="gpt-4o",
+        messages=[
+            {"role": "system", "content": "Você é um assistente técnico no modo carreira do FIFA."},
+            {"role": "user", "content": prompt_base}
+        ],
+        temperature=0.7,
+    )
 
-        resposta = response["choices"][0]["message"]["content"]
-        st.session_state.chat_history.append(("Você", user_input))
-        st.session_state.chat_history.append(("IA", resposta))
+    resposta = response["choices"][0]["message"]["content"]
+    st.session_state.chat_history.append(("Você", user_input))
+    st.session_state.chat_history.append(("IA", resposta))
 
 for remetente, mensagem in st.session_state.chat_history:
     st.markdown(f"**{remetente}:** {mensagem}")
