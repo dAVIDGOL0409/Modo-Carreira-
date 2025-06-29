@@ -186,16 +186,34 @@ Pergunta: {user_input}
 """
 
 if user_input:
-    import openai
-    openai.api_key = "SUA_API_KEY_AQUI"
+  import requests
 
-    response = openai.ChatCompletion.create(
-        model="gpt-4o",
-        messages=[
-            {"role": "system", "content": "Você é um assistente técnico no modo carreira do FIFA."},
-            {"role": "user", "content": prompt_base}
-        ],
-        temperature=0.7,
+HUGGINGFACE_API_KEY = "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"  # Substitua pelo seu token
+MODEL_ID = "HuggingFaceH4/zephyr-7b-beta"  # ou outro modelo da HF
+
+headers = {
+    "Authorization": f"Bearer {HUGGINGFACE_API_KEY}",
+    "Content-Type": "application/json"
+}
+
+payload = {
+    "inputs": f"{prompt_base}",
+    "parameters": {"temperature": 0.7},
+}
+
+response = requests.post(
+    f"https://api-inference.huggingface.co/models/{MODEL_ID}",
+    headers=headers,
+    json=payload,
+)
+
+if response.status_code == 200:
+    resposta = response.json()[0]["generated_text"]
+    st.session_state.chat_history.append(("Você", user_input))
+    st.session_state.chat_history.append(("IA", resposta))
+else:
+    st.error("Erro na resposta da IA: " + response.text)
+
     )
 
     resposta = response["choices"][0]["message"]["content"]
